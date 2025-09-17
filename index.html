@@ -2,293 +2,246 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>~/</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Viewer</title>
   <style>
     body {
+      font-family: monospace, sans-serif;
       margin: 0;
-      font-family: monospace;
-      background: #fafafa;
-      color: #222;
-      height: 100vh;
+      padding: 0;
       display: flex;
       flex-direction: column;
-    }
-    @media (prefers-color-scheme: dark) {
-      body { background: #111; color: #eee; }
+      height: 100vh;
+      background: var(--bg);
+      color: var(--fg);
     }
 
-    #top-bar {
-      display: flex;
-      justify-content: flex-end;
-      gap: 6px;
-      padding: 6px;
-      border-bottom: 1px solid #ccc;
-    }
-    #top-bar button {
-      font-family: monospace;
-      font-size: 14px;
-      padding: 4px 8px;
-      border: 1px solid #aaa;
-      background: #f0f0f0;
-      cursor: pointer;
-    }
+    /* Light & dark theme colors */
     @media (prefers-color-scheme: dark) {
-      #top-bar button {
-        border: 1px solid #555;
-        background: #222;
-        color: #eee;
+      :root {
+        --bg: #111;
+        --fg: #eee;
+      }
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #fff;
+        --fg: #000;
       }
     }
 
-    #container {
-      flex: 1;
+    header {
       display: flex;
-      flex-direction: column;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 8px;
+      border-bottom: 1px solid #aaa;
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    header button {
+      font-family: monospace;
+      padding: 4px 8px;
+      border: 1px solid #aaa;
+      background: transparent;
+      cursor: pointer;
+      color: var(--fg);
+    }
+
+    main {
+      display: flex;
+      flex: 1;
       overflow: hidden;
     }
 
-    #file-browser {
+    #fileTree {
       flex: 1;
       overflow-y: auto;
       padding: 10px;
     }
-    #file-browser ul {
-      list-style: none;
-      padding-left: 18px; /* indent */
-      margin: 0;
+
+    #preview {
+      flex: 1;
+      border-left: 1px solid #aaa;
+      padding: 10px;
+      overflow: auto;
+      display: none;
     }
-    #file-browser li {
-      margin: 2px 0;
+
+    /* Resizer */
+    #resizer {
+      width: 8px; /* easier to grab */
+      cursor: col-resize;
+      background: transparent;
+    }
+
+    #fileTree img.icon {
+      vertical-align: middle;
+      margin-right: 6px;
+      width: 18px;
+      height: auto;
+    }
+
+    ul {
+      list-style: none;
+      padding-left: 20px; /* indent */
+    }
+
+    li {
+      margin: 4px 0;
+    }
+
+    .file-entry {
       display: flex;
       align-items: center;
       cursor: pointer;
     }
-    #file-browser img {
-      width: 18px;
-      height: 18px;
-      object-fit: contain;
-      margin-right: 6px;
-    }
 
-    #dragbar {
-      height: 6px;
-      background: #ccc;
-      cursor: row-resize;
-      position: relative;
-    }
-    #dragbar::before {
-      content: "";
-      position: absolute;
-      top: -10px;
-      left: 0;
-      right: 0;
-      bottom: -10px;
-    }
-    @media (prefers-color-scheme: dark) {
-      #dragbar { background: #444; }
-    }
-
-    #preview-pane {
-      flex: 1;
-      overflow-y: auto;
-      padding: 10px;
-      border-top: 1px solid #ccc;
-      display: flex;
-      flex-direction: column;
-    }
-    @media (prefers-color-scheme: dark) {
-      #preview-pane { border-top: 1px solid #444; }
-    }
-
-    #preview-pane img {
+    #preview img {
       max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
+      height: auto;
       display: block;
       margin: auto;
     }
-    #preview-pane pre {
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-    #preview-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #ccc;
-      padding-bottom: 6px;
-      margin-bottom: 6px;
-    }
-    @media (prefers-color-scheme: dark) {
-      #preview-header { border-bottom: 1px solid #444; }
-    }
-    #preview-header button {
+
+    #downloadBtn {
+      margin-top: 8px;
+      padding: 4px 8px;
       font-family: monospace;
-      font-size: 12px;
-      padding: 2px 6px;
       border: 1px solid #aaa;
-      background: #f0f0f0;
+      background: transparent;
+      color: var(--fg);
       cursor: pointer;
-    }
-    @media (prefers-color-scheme: dark) {
-      #preview-header button {
-        border: 1px solid #555;
-        background: #222;
-        color: #eee;
-      }
     }
   </style>
 </head>
 <body>
-  <div id="top-bar">
-    <button id="github-btn" onclick="window.open('https://github.com/sinceohsix','_blank')">My GitHub</button>
-    <button id="preview-toggle">Hide Preview</button>
-  </div>
+  <header>
+    <button onclick="window.open('https://github.com/sinceohsix','_blank')">My GitHub</button>
+    <button id="togglePreview">Show Preview</button>
+  </header>
 
-  <div id="container">
-    <div id="file-browser"></div>
-    <div id="dragbar"></div>
-    <div id="preview-pane" style="display:block;"></div>
-  </div>
+  <main>
+    <div id="fileTree"></div>
+    <div id="resizer"></div>
+    <div id="preview">
+      <h3 id="previewTitle"></h3>
+      <button id="downloadBtn" style="display:none">Download</button>
+      <div id="previewContent"></div>
+    </div>
+  </main>
 
   <script>
-    const fileBrowser = document.getElementById("file-browser");
-    const previewPane = document.getElementById("preview-pane");
-    const previewToggle = document.getElementById("preview-toggle");
-    const dragbar = document.getElementById("dragbar");
+    const fileTreeEl = document.getElementById('fileTree');
+    const previewEl = document.getElementById('preview');
+    const previewTitle = document.getElementById('previewTitle');
+    const previewContent = document.getElementById('previewContent');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const toggleBtn = document.getElementById('togglePreview');
 
-    let previewVisible = true;
+    const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const folderIcon = isDark ? "folder_white.png" : "folder.png";
+    const fileIcon = isDark ? "file_white.png" : "file.png";
 
-    // Load manifest.json and build file tree
-    async function loadManifest() {
-      const response = await fetch("manifest.json");
-      const data = await response.json();
-      const tree = buildTree(data.items);
-      fileBrowser.innerHTML = "";
-      fileBrowser.appendChild(renderTree(tree));
-    }
+    // Example structure
+    const files = {
+      "images": {
+        "olive.png": "image",
+        "cats.png": "image"
+      },
+      "music": {
+        "Wit My Crew X 1987.mp3": "file"
+      },
+      "about-me.txt": "text"
+    };
 
-    // Build nested folder structure from flat list
-    function buildTree(items) {
-      const root = {};
-      items.forEach(item => {
-        const parts = item.path.split("/");
-        let current = root;
-        parts.forEach((part, i) => {
-          if (!current[part]) {
-            current[part] = (i === parts.length - 1) ? { __file: item } : {};
-          }
-          current = current[part];
-        });
-      });
-      return root;
-    }
+    function buildTree(container, tree) {
+      const ul = document.createElement('ul');
+      for (const key in tree) {
+        const li = document.createElement('li');
+        const entryDiv = document.createElement('div');
+        entryDiv.className = "file-entry";
 
-    // Render tree recursively
-    function renderTree(node, depth = 0) {
-      const ul = document.createElement("ul");
-      for (const key in node) {
-        const li = document.createElement("li");
-        if (node[key].__file) {
-          const img = document.createElement("img");
-          img.src = prefersDark() ? "icons/file_white.png" : "icons/file.png";
-          li.appendChild(img);
-          li.appendChild(document.createTextNode(key));
-          li.onclick = () => previewFile(node[key].__file.path);
+        const img = document.createElement('img');
+        img.className = "icon";
+
+        if (typeof tree[key] === 'object') {
+          // Folder
+          img.src = folderIcon;
+          entryDiv.appendChild(img);
+          entryDiv.appendChild(document.createTextNode(key));
+          li.appendChild(entryDiv);
+          li.appendChild(buildTree(container, tree[key]));
         } else {
-          const img = document.createElement("img");
-          img.src = prefersDark() ? "icons/folder_white.png" : "icons/folder.png";
-          li.appendChild(img);
-          li.appendChild(document.createTextNode(key));
-          li.onclick = (e) => {
-            e.stopPropagation();
-            const existing = li.querySelector("ul");
-            if (existing) {
-              existing.remove();
-            } else {
-              li.appendChild(renderTree(node[key], depth + 1));
-            }
-          };
+          // File
+          img.src = fileIcon;
+          entryDiv.appendChild(img);
+          entryDiv.appendChild(document.createTextNode(key));
+          entryDiv.onclick = () => loadPreview(key, tree[key]);
+          li.appendChild(entryDiv);
         }
+
         ul.appendChild(li);
       }
       return ul;
     }
 
-    function prefersDark() {
-      return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-    }
+    function loadPreview(name, type) {
+      previewEl.style.display = "block";
+      toggleBtn.textContent = "Hide Preview";
+      previewTitle.textContent = name;
+      previewContent.innerHTML = "";
+      downloadBtn.style.display = "inline-block";
 
-    async function previewFile(path) {
-      previewPane.style.display = "block";
-      previewToggle.textContent = "Hide Preview";
-      previewVisible = true;
-
-      previewPane.innerHTML = `<div id="preview-header"><span>${path}</span><button onclick="downloadFile('${path}')">Download</button></div>Loading...`;
-
-      try {
-        const response = await fetch("contents/" + path);
-        if (!response.ok) throw new Error("Error loading file: " + response.status);
-
-        const ext = path.split(".").pop().toLowerCase();
-        if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) {
-          const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
-          previewPane.innerHTML = `<div id="preview-header"><span>${path}</span><button onclick="downloadFile('${path}')">Download</button></div><img src="${url}">`;
-        } else if (["txt", "md"].includes(ext)) {
-          const text = await response.text();
-          previewPane.innerHTML = `<div id="preview-header"><span>${path}</span><button onclick="downloadFile('${path}')">Download</button></div><pre>${text}</pre>`;
-        } else if (["mp3", "wav", "ogg"].includes(ext)) {
-          const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
-          previewPane.innerHTML = `<div id="preview-header"><span>${path}</span><button onclick="downloadFile('${path}')">Download</button></div><audio controls src="${url}"></audio>`;
-        } else {
-          previewPane.innerHTML = `<div id="preview-header"><span>${path}</span><button onclick="downloadFile('${path}')">Download</button></div><p>No preview available for this file type.</p>`;
-        }
-      } catch (err) {
-        previewPane.innerHTML = `<div id="preview-header"><span>${path}</span></div><p>${err.message}</p>`;
+      if (type === "image") {
+        const img = document.createElement('img');
+        img.src = "contents/" + name;
+        previewContent.appendChild(img);
+        downloadBtn.onclick = () => window.open(img.src, "_blank");
+      } else if (name.endsWith(".txt")) {
+        fetch("contents/" + name)
+          .then(res => res.text())
+          .then(text => {
+            const pre = document.createElement('pre');
+            pre.textContent = text;
+            previewContent.appendChild(pre);
+          });
+        downloadBtn.onclick = () => window.open("contents/" + name, "_blank");
+      } else {
+        const msg = document.createElement('p');
+        msg.textContent = "Preview not available.";
+        previewContent.appendChild(msg);
+        downloadBtn.onclick = () => window.open("contents/" + name, "_blank");
       }
     }
 
-    function downloadFile(path) {
-      window.open("contents/" + path, "_blank");
-    }
-
-    // Toggle preview
-    previewToggle.onclick = () => {
-      previewVisible = !previewVisible;
-      previewPane.style.display = previewVisible ? "block" : "none";
-      previewToggle.textContent = previewVisible ? "Hide Preview" : "Show Preview";
+    toggleBtn.onclick = () => {
+      if (previewEl.style.display === "none" || previewEl.style.display === "") {
+        previewEl.style.display = "block";
+        toggleBtn.textContent = "Hide Preview";
+      } else {
+        previewEl.style.display = "none";
+        toggleBtn.textContent = "Show Preview";
+      }
     };
 
-    // Drag to resize
-    dragbar.addEventListener("mousedown", initDrag);
-    dragbar.addEventListener("touchstart", initDrag);
+    // Resizer logic
+    const resizer = document.getElementById('resizer');
+    let isResizing = false;
+    resizer.addEventListener('mousedown', () => { isResizing = true; });
+    document.addEventListener('mousemove', e => {
+      if (!isResizing) return;
+      const offsetRight = document.body.offsetWidth - (e.clientX);
+      previewEl.style.flex = "none";
+      previewEl.style.width = offsetRight + "px";
+    });
+    document.addEventListener('mouseup', () => { isResizing = false; });
 
-    function initDrag(e) {
-      e.preventDefault();
-      document.addEventListener("mousemove", doDrag);
-      document.addEventListener("mouseup", stopDrag);
-      document.addEventListener("touchmove", doDrag);
-      document.addEventListener("touchend", stopDrag);
-    }
-    function doDrag(e) {
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      const containerRect = document.getElementById("container").getBoundingClientRect();
-      const topHeight = clientY - containerRect.top;
-      const bottomHeight = containerRect.height - topHeight;
-      document.getElementById("file-browser").style.flex = "0 0 " + topHeight + "px";
-      previewPane.style.flex = "0 0 " + bottomHeight + "px";
-    }
-    function stopDrag() {
-      document.removeEventListener("mousemove", doDrag);
-      document.removeEventListener("mouseup", stopDrag);
-      document.removeEventListener("touchmove", doDrag);
-      document.removeEventListener("touchend", stopDrag);
-    }
-
-    loadManifest();
+    // Build tree
+    fileTreeEl.appendChild(buildTree(fileTreeEl, files));
   </script>
 </body>
 </html>
