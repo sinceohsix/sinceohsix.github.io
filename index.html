@@ -2,64 +2,100 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>My Simple Site</title>
+  <title>@sinceohsix's Files</title>
   <style>
     body {
       font-family: monospace;
       background: #fafafa;
       padding: 2rem;
     }
-    ul {
-      list-style: none;
-      padding-left: 0;
+    a {
+      display: inline-block;
+      margin-bottom: 1rem;
+      text-decoration: none;
+      color: #0077cc;
     }
-    li {
-      margin: 0.3rem 0;
-      display: flex;
-      align-items: center;
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #eee;
+      padding: 1rem;
+      border-radius: 6px;
     }
     img {
-      width: 18px;
-      height: 18px;
-      margin-right: 6px;
-    }
-    a {
-      text-decoration: none;
-      color: #333;
-    }
-    a:hover {
-      text-decoration: underline;
+      max-width: 100%;
+      height: auto;
+      border: 1px solid #ccc;
+      border-radius: 6px;
     }
   </style>
 </head>
 <body>
-  <h1>~/</h1>
-  <ul id="file-list"></ul>
+  <a href="index.html">← back</a>
+  <h1 id="filename"></h1>
+  <div id="preview">Loading…</div>
 
   <script>
-    async function loadManifest() {
-      const response = await fetch("manifest.json");
-      const data = await response.json();
-
-      const list = document.getElementById("file-list");
-
-      data.items.forEach(item => {
-        const li = document.createElement("li");
-        const img = document.createElement("img");
-        img.src = item.type === "folder" ? "icons/folder.png" : "icons/file.png";
-        img.alt = item.type;
-
-        const link = document.createElement("a");
-        link.href = item.path;
-        link.textContent = item.name;
-
-        li.appendChild(img);
-        li.appendChild(link);
-        list.appendChild(li);
-      });
+    // Helper: get query param (?path=...)
+    function getQueryParam(name) {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(name);
     }
 
-    loadManifest();
+    async function loadFile() {
+      const logicalPath = getQueryParam("path"); // e.g. "files/archive.zip"
+      if (!logicalPath) {
+        document.getElementById("preview").textContent = "No file specified.";
+        return;
+      }
+
+      // Show filename
+      document.getElementById("filename").textContent = logicalPath;
+
+      // Actual repo location: contents/ + logicalPath
+      const realPath = "contents/" + logicalPath;
+
+      try {
+        const response = await fetch(realPath);
+
+        if (!response.ok) {
+          document.getElementById("preview").textContent =
+            `Error: ${response.status} ${response.statusText}`;
+          return;
+        }
+
+        // Decide how to preview based on extension
+        const ext = logicalPath.split(".").pop().toLowerCase();
+
+        if (["png","jpg","jpeg","gif","webp","svg"].includes(ext)) {
+          // Image preview
+          const img = document.createElement("img");
+          img.src = realPath;
+          document.getElementById("preview").innerHTML = "";
+          document.getElementById("preview").appendChild(img);
+        } else if (["txt","json","md","html","css","js"].includes(ext)) {
+          // Text preview
+          const text = await response.text();
+          const pre = document.createElement("pre");
+          pre.textContent = text;
+          document.getElementById("preview").innerHTML = "";
+          document.getElementById("preview").appendChild(pre);
+        } else {
+          // Download link fallback
+          const link = document.createElement("a");
+          link.href = realPath;
+          link.download = logicalPath.split("/").pop();
+          link.textContent = "Download " + logicalPath;
+          document.getElementById("preview").innerHTML = "";
+          document.getElementById("preview").appendChild(link);
+        }
+
+      } catch (err) {
+        document.getElementById("preview").textContent = "Error loading file: " + err;
+      }
+    }
+
+    loadFile();
   </script>
 </body>
 </html>
