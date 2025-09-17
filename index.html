@@ -1,234 +1,494 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>~/</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8" />
+  <title>~/ — File Browser</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body {
-      font-family: monospace;
-      background: #fafafa;
-      color: #111;
-      padding: 1rem;
-      max-width: 900px;
-      margin: auto;
+    /* === BASIC / THEME === */
+    :root{
+      --bg:#fafafa; --fg:#111; --panel:#fff; --muted:#666; --accent:#0077cc; --divider:#cfcfcf;
+      --ui-radius:6px;
     }
-
-    h1 {
-      font-size: 1.4rem;
-      margin-bottom: 1rem;
-    }
-
-    ul {
-      list-style: none;
-      padding-left: 1.2rem;
-    }
-
-    li {
-      margin: 0.4rem 0;
-      display: flex;
-      align-items: center;
-    }
-
-    img.icon {
-      width: 20px;      /* logical size */
-      height: 20px;
-      object-fit: contain; /* keep proportions, no smush */
-      margin-right: 6px;
-      flex-shrink: 0;
-    }
-
-    a {
-      text-decoration: none;
-      color: inherit;
-      cursor: pointer;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-
-    #preview {
-      margin-top: 2rem;
-      padding: 1rem;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      background: #fff;
-      display: none;
-    }
-
-    pre {
-      white-space: pre-wrap;
-      word-break: break-word;
-      background: #eee;
-      padding: 1rem;
-      border-radius: 6px;
-      overflow-x: auto;
-    }
-
-    img.preview {
-      max-width: 100%;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-    }
-
-    /* Dark mode */
-    @media (prefers-color-scheme: dark) {
-      body {
-        background: #111;
-        color: #eee;
-      }
-      #preview {
-        background: #222;
-        border-color: #555;
-      }
-      pre {
-        background: #333;
+    @media (prefers-color-scheme:dark){
+      :root{
+        --bg:#0b0b0b; --fg:#eaeaea; --panel:#111; --muted:#aaa; --accent:#4ea8ff; --divider:#333;
       }
     }
+    html,body{height:100%; margin:0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--fg); background:var(--bg);}
+    a { color:var(--fg); text-decoration:none; }
+    a.small { color:var(--muted); font-size:0.9rem; }
+    h1{font-size:1.1rem;margin:12px 0;}
+    /* === LAYOUT: split with draggable divider === */
+    .shell {
+      display:flex;
+      height:100vh;
+      box-sizing:border-box;
+      gap:0;
+      align-items:stretch;
+      padding:10px;
+      max-width:1200px;
+      margin:0 auto;
+    }
+
+    /* left browser panel */
+    .browser {
+      flex:0 0 360px; /* initial width */
+      min-width:120px;
+      max-width:calc(100% - 120px);
+      background:var(--panel);
+      border:1px solid var(--divider);
+      border-radius:0;
+      padding:12px;
+      box-sizing:border-box;
+      overflow:auto;
+    }
+
+    /* divider */
+    .divider {
+      width:8px;
+      cursor:col-resize;
+      background:linear-gradient(90deg, transparent, rgba(0,0,0,0.02), transparent);
+      display:flex; align-items:center; justify-content:center;
+    }
+    .divider .grip {
+      width:24px; height:60px; display:block;
+      border-left:2px solid var(--divider); border-right:2px solid var(--divider);
+      box-sizing:border-box;
+    }
+
+    /* preview panel */
+    .preview-panel {
+      flex:1 1 0;
+      background:var(--panel);
+      border:1px solid var(--divider);
+      border-left:none;
+      padding:8px;
+      box-sizing:border-box;
+      overflow:auto;
+      display:flex;
+      flex-direction:column;
+    }
+
+    /* header / path */
+    .toprow { display:flex; align-items:center; gap:12px; margin-bottom:6px; }
+    .path { font-size:0.95rem; color:var(--muted); }
+
+    /* directory tree */
+    .tree { padding-left:0; margin:0; }
+    .tree ul { list-style:none; padding-left:12px; margin:6px 0; }
+    .node { display:flex; gap:8px; align-items:center; padding:6px 6px; border-radius:4px; user-select:none; }
+    .node:hover { background:rgba(0,0,0,0.02); }
+    .icon {
+      width:28px; height:28px; object-fit:contain; flex:0 0 28px;
+    }
+    .name { font-size:0.95rem; color:var(--fg); }
+    .meta { font-size:0.85rem; color:var(--muted); margin-left:auto; }
+
+    /* FOLDER: chevron style */
+    .chev { width:14px; height:14px; display:inline-block; transform:rotate(0); transition:transform .18s ease; margin-right:6px; }
+    .expanded > .chev { transform:rotate(90deg); }
+
+    /* animated collapse */
+    .children { overflow:hidden; transition:max-height .28s ease; max-height:0; }
+    .expanded > .children { max-height:2000px; } /* large enough for deep lists */
+
+    /* preview content */
+    .preview-header { display:flex; gap:8px; align-items:center; border-bottom:1px solid var(--divider); padding-bottom:8px; margin-bottom:8px; }
+    .preview-body { flex:1 1 auto; overflow:auto; padding:8px; }
+    pre { white-space:pre-wrap; word-break:break-word; background:rgba(0,0,0,0.03); padding:10px; border-radius:4px; overflow:auto; }
+    img.preview { max-width:100%; height:auto; display:block; border:1px solid var(--divider); border-radius:4px; }
+    audio { width:100%; outline:none; margin-top:8px; }
+
+    /* smaller screens stack vertically and allow vertical drag */
+    @media (max-width:800px){
+      .shell { flex-direction:column; padding:8px; }
+      .browser { width:100%; height:42vh; max-height:50vh; overflow:auto; }
+      .divider { height:8px; width:100%; cursor:row-resize; display:flex; }
+      .divider .grip { width:60px; height:16px; border-top:2px solid var(--divider); border-bottom:2px solid var(--divider); }
+      .preview-panel { height:calc(100vh - 42vh - 32px); min-height:220px; }
+    }
+
+    /* UI tweaks */
+    .muted { color:var(--muted); font-size:0.9rem; }
+    .btn { border:1px solid var(--divider); background:transparent; padding:6px 8px; border-radius:4px; cursor:pointer; font-family:inherit; }
   </style>
 </head>
 <body>
-  <h1>~/</h1>
-  <ul id="file-list"></ul>
+  <div class="shell" id="shell">
+    <nav class="browser" id="browser">
+      <div class="toprow">
+        <h1 style="margin:0">~/</h1>
+        <div style="flex:1"></div>
+        <a href="#" id="refreshBtn" class="btn">Refresh</a>
+      </div>
+      <div id="treeWrap" class="tree" aria-live="polite">Loading manifest…</div>
+    </nav>
 
-  <div id="preview">
-    <a href="index.html">← back</a>
-    <h2 id="filename"></h2>
-    <div id="filecontent">Loading…</div>
+    <div class="divider" id="divider" title="Drag to resize">
+      <span class="grip" aria-hidden="true"></span>
+    </div>
+
+    <section class="preview-panel" id="previewPanel" aria-live="polite">
+      <div class="preview-header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img id="previewIcon" class="icon" src="icons/file.png" alt="" />
+          <div>
+            <div id="previewName" style="font-weight:600">No file selected</div>
+            <div id="previewPath" class="muted" style="font-size:0.85rem">—</div>
+          </div>
+        </div>
+        <div style="flex:1"></div>
+        <div class="meta">
+          <a id="downloadLink" class="small" href="#" download style="display:none">Download</a>
+        </div>
+      </div>
+
+      <div class="preview-body" id="previewBody">
+        <div class="muted">Select a file on the left to preview (text, image, mp3 supported)</div>
+      </div>
+    </section>
   </div>
 
-  <script>
-    let manifestData = null;
-    let darkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
+<script>
+/* ======= CONFIG ======= */
+const CONTENTS_PREFIX = "contents/"; // automatically prepended to logical paths
+const ICONS = {
+  folder: "icons/folder.png",
+  file: "icons/file.png",
+  folder_white: "icons/folder_white.png",
+  file_white: "icons/file_white.png"
+};
+/* ====================== */
 
-    async function loadManifest() {
-      const res = await fetch("manifest.json");
-      manifestData = await res.json();
+let manifest = null;
+const browserEl = document.getElementById("treeWrap");
+const previewBody = document.getElementById("previewBody");
+const previewName = document.getElementById("previewName");
+const previewPath = document.getElementById("previewPath");
+const previewIcon = document.getElementById("previewIcon");
+const downloadLink = document.getElementById("downloadLink");
 
-      // Build folder tree from file paths
-      const tree = buildTree(manifestData.items);
-      renderTree(tree, document.getElementById("file-list"));
-      checkURL();
+// dark mode detection for icons
+const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+function pickIcon(type) {
+  if (type === 'folder') return isDark ? ICONS.folder_white : ICONS.folder;
+  return isDark ? ICONS.file_white : ICONS.file;
+}
+
+// fetch manifest and render
+async function loadManifest() {
+  try {
+    const res = await fetch('manifest.json', {cache: "no-store"});
+    if (!res.ok) throw new Error(`manifest fetch ${res.status}`);
+    const data = await res.json();
+    manifest = Array.isArray(data.items) ? data.items : (Array.isArray(data) ? data : (data.items || []));
+    // Accept either {items:[...]} or just an array
+    // Normalize items to {path, name}
+    manifest = manifest.map(i => {
+      if (typeof i === 'string') return {path: i, name: i.split('/').pop()};
+      if (!i.path) return null;
+      return {path: i.path.replace(/^\/+/, ''), name: i.name || i.path.split('/').pop()};
+    }).filter(Boolean);
+
+    const tree = buildTree(manifest);
+    browserEl.innerHTML = '';
+    browserEl.appendChild(renderTree(tree));
+    // If URL has ?path= something open preview
+    const urlPath = new URLSearchParams(location.search).get('path');
+    if (urlPath) {
+      openPreview(urlPath);
+      // try to expand the folder chain to reveal file in tree
+      expandToPath(urlPath);
     }
+  } catch (err) {
+    browserEl.textContent = "Error loading manifest: " + err;
+    console.error(err);
+  }
+}
 
-    // Build folder structure automatically
-    function buildTree(items) {
-      const root = {};
-
-      items.forEach(item => {
-        const parts = item.path.split("/");
-        let node = root;
-        parts.forEach((part, i) => {
-          const isFile = i === parts.length - 1;
-          if (!node[part]) {
-            node[part] = {
-              __type: isFile ? "file" : "folder",
-              __children: {}
-            };
-          }
-          if (isFile) {
-            node[part].__data = item;
-          }
-          node = node[part].__children;
-        });
-      });
-
-      return root;
+/* Build tree structure from file paths
+   returns object where keys are folder/file names and value:
+   { type: 'folder'|'file', children: {...}, data: {path,name}}
+*/
+function buildTree(items) {
+  const root = {};
+  for (const it of items) {
+    const parts = it.path.split('/').filter(Boolean);
+    let node = root;
+    for (let i=0; i<parts.length; i++) {
+      const name = parts[i];
+      const isFile = i === parts.length - 1 && name.includes('.');
+      if (!node[name]) node[name] = { type: isFile ? 'file' : 'folder', children: {}, data: null };
+      if (isFile) node[name].data = it;
+      node = node[name].children;
     }
+  }
+  return root;
+}
 
-    function renderTree(tree, container) {
-      const ul = document.createElement("ul");
+/* Render tree recursively */
+function renderTree(tree, depth=0) {
+  const ul = document.createElement('ul');
+  for (const [name, node] of Object.entries(tree)) {
+    const li = document.createElement('li');
 
-      Object.entries(tree).forEach(([name, obj]) => {
-        const li = document.createElement("li");
-        const img = document.createElement("img");
-        img.className = "icon";
+    const row = document.createElement('div');
+    row.className = 'node';
+    row.style.paddingLeft = (depth * 12) + 'px'; // indent visually
 
-        if (obj.__type === "folder") {
-          img.src = darkMode ? "icons/folder_white.png" : "icons/folder.png";
-          const link = document.createElement("a");
-          link.textContent = name;
-          link.onclick = () => {
-            if (li.querySelector("ul")) {
-              li.removeChild(li.querySelector("ul")); // collapse
-            } else {
-              renderTree(obj.__children, li); // expand
-            }
-          };
-          li.appendChild(img);
-          li.appendChild(link);
+    // chevron for folders
+    const chev = document.createElement('span');
+    chev.className = 'chev';
+    chev.innerHTML = node.type === 'folder' ? '&#9654;' : ''; // triangle
+    row.appendChild(chev);
+
+    // icon
+    const img = document.createElement('img');
+    img.className = 'icon';
+    img.src = node.type === 'folder' ? pickIcon('folder') : pickIcon('file');
+    img.alt = node.type;
+    row.appendChild(img);
+
+    // name
+    const nameEl = document.createElement('span');
+    nameEl.className = 'name';
+    nameEl.textContent = name;
+    row.appendChild(nameEl);
+
+    // meta placeholder
+    // const meta = document.createElement('span'); meta.className='meta'; row.appendChild(meta);
+
+    li.appendChild(row);
+
+    if (node.type === 'folder') {
+      // children container
+      const childWrap = document.createElement('div');
+      childWrap.className = 'children';
+      // initially empty; render on expand to keep DOM small
+      row.onclick = (e) => {
+        e.stopPropagation();
+        const isExpanded = row.classList.contains('expanded');
+        if (isExpanded) {
+          row.classList.remove('expanded');
+          // animate close
+          animateCollapse(childWrap);
         } else {
-          img.src = darkMode ? "icons/file_white.png" : "icons/file.png";
-          const link = document.createElement("a");
-          link.textContent = name;
-          link.href = "?path=" + encodeURIComponent(obj.__data.path);
-          link.onclick = (e) => {
-            e.preventDefault();
-            openPreview(obj.__data.path);
-            history.pushState(null, "", "?path=" + encodeURIComponent(obj.__data.path));
-          };
-          li.appendChild(img);
-          li.appendChild(link);
+          row.classList.add('expanded');
+          if (!childWrap.hasChildNodes()) {
+            childWrap.appendChild(renderTree(node.children, depth+1));
+            // After append, animate expand
+            animateExpand(childWrap);
+          } else {
+            animateExpand(childWrap);
+          }
         }
+      };
+      li.appendChild(childWrap);
 
-        ul.appendChild(li);
-      });
-
-      container.appendChild(ul);
+    } else { // file
+      row.style.cursor = 'pointer';
+      row.onclick = (e) => {
+        e.stopPropagation();
+        const logical = node.data.path;
+        openPreview(logical);
+        history.pushState({}, '', '?path=' + encodeURIComponent(logical));
+      };
     }
 
-    async function openPreview(logicalPath) {
-      const filename = document.getElementById("filename");
-      const content = document.getElementById("filecontent");
-      const previewBox = document.getElementById("preview");
+    ul.appendChild(li);
+  }
+  return ul;
+}
 
-      filename.textContent = logicalPath;
-      previewBox.style.display = "block";
-      content.textContent = "Loading…";
+/* Smooth expand/collapse helpers using max-height animation */
+function animateExpand(el) {
+  el.style.display = 'block';
+  const height = el.scrollHeight;
+  el.style.maxHeight = '0px';
+  // Force reflow
+  el.offsetHeight;
+  el.style.transition = 'max-height .28s ease';
+  el.style.maxHeight = height + 'px';
+  // Clear after transition
+  el.addEventListener('transitionend', function te(){
+    el.style.maxHeight = 'none';
+    el.style.transition = '';
+    el.removeEventListener('transitionend', te);
+  });
+}
+function animateCollapse(el) {
+  const height = el.scrollHeight;
+  el.style.maxHeight = height + 'px';
+  // Force reflow
+  el.offsetHeight;
+  el.style.transition = 'max-height .22s ease';
+  el.style.maxHeight = '0px';
+  el.addEventListener('transitionend', function tc(){
+    el.style.transition = '';
+    el.removeEventListener('transitionend', tc);
+  });
+}
 
-      const realPath = "contents/" + logicalPath;
-      try {
-        const res = await fetch(realPath);
-        if (!res.ok) {
-          content.textContent = "Error: " + res.status;
-          return;
-        }
-        const ext = logicalPath.split(".").pop().toLowerCase();
-        if (["png","jpg","jpeg","gif","webp","svg"].includes(ext)) {
-          const img = document.createElement("img");
-          img.src = realPath;
-          img.className = "preview";
-          content.innerHTML = "";
-          content.appendChild(img);
-        } else if (["txt","json","md","html","css","js"].includes(ext)) {
-          const text = await res.text();
-          const pre = document.createElement("pre");
-          pre.textContent = text;
-          content.innerHTML = "";
-          content.appendChild(pre);
-        } else {
-          const link = document.createElement("a");
-          link.href = realPath;
-          link.download = logicalPath.split("/").pop();
-          link.textContent = "Download " + logicalPath;
-          content.innerHTML = "";
-          content.appendChild(link);
-        }
-      } catch (err) {
-        content.textContent = "Error loading file: " + err;
-      }
+/* Expand tree nodes along a path so a given file is visible */
+function expandToPath(path) {
+  const parts = path.split('/').filter(Boolean);
+  let query = '';
+  let currentList = browserEl;
+  for (let i=0;i<parts.length - 1;i++){
+    const part = parts[i];
+    // find node row whose .name == part within currentList
+    const rows = currentList.querySelectorAll(':scope > ul > li > .node');
+    let foundRow=null;
+    for (const r of rows) {
+      const nameSpan = r.querySelector('.name');
+      if (nameSpan && nameSpan.textContent === part) { foundRow = r; break; }
     }
+    if (!foundRow) return;
+    // simulate click to expand if not expanded
+    if (!foundRow.classList.contains('expanded')) foundRow.click();
+    // move currentList down one level
+    const childWrap = foundRow.parentElement.querySelector('.children');
+    if (!childWrap) return;
+    currentList = childWrap;
+  }
+}
 
-    function checkURL() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const file = urlParams.get("path");
-      if (file) openPreview(file);
+/* === Preview logic === */
+function extOf(path) {
+  const p = path.split('?')[0].split('#')[0];
+  const part = p.split('/').pop() || '';
+  const dot = part.lastIndexOf('.');
+  return (dot === -1) ? '' : part.slice(dot+1).toLowerCase();
+}
+
+async function openPreview(logicalPath){
+  previewName.textContent = logicalPath.split('/').pop();
+  previewPath.textContent = logicalPath;
+  previewIcon.src = pickIcon('file');
+  downloadLink.style.display = 'none';
+  previewBody.innerHTML = '<div class="muted">Loading preview…</div>';
+
+  const real = CONTENTS_PREFIX + logicalPath;
+  try {
+    const res = await fetch(real);
+    if (!res.ok) {
+      previewBody.innerHTML = '<div class="muted">Error loading file: ' + res.status + '</div>';
+      return;
     }
+    const ext = extOf(logicalPath);
+    if (['png','jpg','jpeg','gif','webp','svg'].includes(ext)) {
+      // image
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const img = document.createElement('img');
+      img.className='preview';
+      img.src = url;
+      previewBody.innerHTML = '';
+      previewBody.appendChild(img);
+      // cleanup object URL when not used
+      img.onload = () => { URL.revokeObjectURL(url); };
+      downloadLink.href = real;
+      downloadLink.style.display = 'inline';
+    } else if (['txt','md','json','csv','log','html','css','js'].includes(ext)) {
+      const text = await res.text();
+      const pre = document.createElement('pre');
+      pre.textContent = text;
+      previewBody.innerHTML = '';
+      previewBody.appendChild(pre);
+      downloadLink.href = real;
+      downloadLink.style.display = 'inline';
+    } else if (['mp3','wav','ogg','m4a'].includes(ext)) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = document.createElement('audio');
+      audio.controls = true;
+      audio.src = url;
+      previewBody.innerHTML = '';
+      previewBody.appendChild(audio);
+      // revoke after user stops? leave automatic revoke on unload
+      downloadLink.href = real;
+      downloadLink.style.display = 'inline';
+    } else {
+      // default: offer download
+      previewBody.innerHTML = '<div class="muted">No preview available. Use download.</div>';
+      downloadLink.href = real;
+      downloadLink.style.display = 'inline';
+    }
+  } catch (err) {
+    previewBody.innerHTML = '<div class="muted">Preview failed: ' + err + '</div>';
+    console.error(err);
+  }
+}
 
-    window.onpopstate = checkURL;
+/* ===== Divider (drag to resize) ===== */
+const shell = document.getElementById('shell');
+const divider = document.getElementById('divider');
+const browserPanel = document.querySelector('.browser');
+const previewPanel = document.querySelector('.preview-panel');
 
-    loadManifest();
-  </script>
+let dragging = false;
+let dragType = 'horizontal'; // or 'vertical' for mobile stack
+function startDrag(e){
+  dragging = true;
+  dragType = (window.innerWidth <= 800) ? 'vertical' : 'horizontal';
+  document.body.style.cursor = (dragType==='horizontal' ? 'col-resize' : 'row-resize');
+  e.preventDefault();
+}
+function stopDrag(){
+  dragging = false;
+  document.body.style.cursor = '';
+}
+function doDrag(e){
+  if (!dragging) return;
+  const client = (e.touches ? e.touches[0] : e).clientX;
+  if (dragType === 'horizontal') {
+    // calculate width for browser panel
+    const rect = shell.getBoundingClientRect();
+    const newWidth = Math.min(Math.max(client - rect.left - 8, 120), rect.width - 120);
+    browserPanel.style.flex = '0 0 ' + newWidth + 'px';
+  } else {
+    // vertical mode: adjust browser height
+    const clientY = (e.touches ? e.touches[0] : e).clientY;
+    const rect = shell.getBoundingClientRect();
+    const top = clientY - rect.top;
+    const maxH = rect.height - 120;
+    const h = Math.min(Math.max(top - 8, 80), maxH);
+    browserPanel.style.flex = '0 0 ' + h + 'px';
+  }
+  e.preventDefault();
+}
+
+divider.addEventListener('mousedown', startDrag);
+divider.addEventListener('touchstart', startDrag, {passive:false});
+window.addEventListener('mousemove', doDrag);
+window.addEventListener('touchmove', doDrag, {passive:false});
+window.addEventListener('mouseup', stopDrag);
+window.addEventListener('touchend', stopDrag);
+
+/* Refresh button */
+document.getElementById('refreshBtn').addEventListener('click', (e) => {
+  e.preventDefault();
+  loadManifest();
+});
+
+/* Back/forward support: if popstate with path open it */
+window.addEventListener('popstate', () => {
+  const urlPath = new URLSearchParams(location.search).get('path');
+  if (urlPath) {
+    openPreview(urlPath);
+    expandToPath(urlPath);
+  } else {
+    // no path: clear preview
+    previewName.textContent = 'No file selected';
+    previewPath.textContent = '--';
+    previewBody.innerHTML = '<div class="muted">Select a file on the left to preview (text, image, mp3 supported)</div>';
+    downloadLink.style.display = 'none';
+  }
+});
+
+/* initial load */
+loadManifest();
+</script>
 </body>
 </html>
