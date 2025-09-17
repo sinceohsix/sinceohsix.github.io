@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>@sinceohsix's Files</title>
+<title>SinceOhSix — File Browser</title>
 <style>
   /* === THEME & VARIABLES (declare early) === */
   :root{
@@ -27,6 +27,7 @@
     display:flex;
     align-items:center;
     justify-content:flex-end;
+    gap:8px;
     padding:8px 12px;
     border-bottom:1px solid var(--divider);
     box-sizing:border-box;
@@ -70,10 +71,24 @@
     user-select:none;
     -webkit-user-select:none;
     box-sizing:border-box;
+    position:relative; /* for pseudo before hit area */
   }
+  /* visible grip (keeps same visual thickness) */
   #hdivider .grip {
     width:80px; height:4px; border-radius:2px; background:var(--divider);
     opacity:0.7;
+  }
+  /* invisible larger hit area without changing visual thickness */
+  #hdivider::before{
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -14px;   /* extend above */
+    bottom: -14px;/* extend below */
+    /* transparent and captures pointer events */
+    background: transparent;
+    pointer-events: auto;
   }
 
   /* preview (bottom) - height controlled by CSS variable */
@@ -85,6 +100,8 @@
     box-sizing:border-box;
     background:var(--panel);
     transition: max-height .18s ease;
+    display:flex;
+    flex-direction:column;
   }
   /* when preview is hidden we set preview height to 0 via .preview-closed class on body */
   body.preview-closed #previewer{
@@ -103,6 +120,7 @@
   .expanded > .chev { transform:rotate(90deg); }
   .icon { width:var(--icon-size); height:var(--icon-size); object-fit:contain; flex:0 0 var(--icon-size); }
   .name { font-size:1rem; }
+  /* we use row.style.paddingLeft to indent rows by depth (see JS) */
   .indent { padding-left:12px; }
 
   /* children collapse/expand */
@@ -111,9 +129,9 @@
 
   /* preview content */
   .preview-header { display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--divider); padding-bottom:8px; margin-bottom:8px; }
-  .preview-body { overflow:auto; }
-  pre { white-space:pre-wrap; word-break:break-word; background:rgba(0,0,0,0.03); padding:10px; border-radius:6px; overflow:auto; }
-  img.preview { max-width:100%; height:auto; display:block; border-radius:6px; border:1px solid var(--divider); }
+  .preview-body { overflow:auto; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:8px; }
+  pre { white-space:pre-wrap; word-break:break-word; background:rgba(0,0,0,0.03); padding:10px; border-radius:6px; overflow:auto; align-self:flex-start; width:100%; }
+  img.preview { max-width:100%; max-height:100%; object-fit:contain; display:block; border-radius:6px; border:1px solid var(--divider); }
 
   /* small / mobile tweaks */
   @media (max-width:700px){
@@ -125,6 +143,8 @@
 </head>
 <body class="preview-open">
   <div id="toolbar">
+    <!-- My GitHub button (left of preview toggle) -->
+    <button id="githubBtn" class="btn">My GitHub</button>
     <button id="togglePreview" class="btn">Hide Preview</button>
   </div>
 
@@ -144,7 +164,7 @@
     <div id="previewer" aria-live="polite">
       <div class="preview-header">
         <img id="previewIcon" class="icon" src="icons/file.png" alt="">
-        <div>
+        <div style="min-width:0">
           <div id="previewName" style="font-weight:700">No file selected</div>
           <div id="previewPath" style="color:var(--muted);font-size:0.9rem">—</div>
         </div>
@@ -152,7 +172,7 @@
         <a id="downloadLink" class="btn" href="#" download style="display:none">Download</a>
       </div>
       <div id="previewBody" class="preview-body">
-        <div style="color:var(--muted)">Select a file above to preview. Supported: images, text, mp3. Use the divider to resize the preview area.</div>
+        <div style="color:var(--muted); width:100%;">Select a file above to preview. Supported: images, text, mp3. Use the divider to resize the preview area.</div>
       </div>
     </div>
   </div>
@@ -177,6 +197,7 @@ const downloadLink = document.getElementById('downloadLink');
 const toggleBtn = document.getElementById('togglePreview');
 const hdivider = document.getElementById('hdivider');
 const container = document.getElementById('container');
+const githubBtn = document.getElementById('githubBtn');
 
 // theme-aware icon picker
 const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -246,6 +267,10 @@ function renderTree(tree, depth=0){
     row.className = 'node';
     if (node.type === 'folder') row.classList.add('folder');
     if (node.type === 'file') row.classList.add('file');
+
+    // indentation by depth so nested items align correctly
+    row.style.paddingLeft = (depth * 12) + 'px';
+
     // left: chevron for folder
     const chev = document.createElement('span'); chev.className = 'chev'; chev.innerHTML = node.type === 'folder' ? '&#9654;' : '';
     row.appendChild(chev);
@@ -428,6 +453,9 @@ window.addEventListener('mouseup', stopDrag);
 window.addEventListener('touchend', stopDrag);
 
 toggleBtn.addEventListener('click', (e)=>{ e.preventDefault(); togglePreview(); });
+
+/* GitHub button */
+githubBtn.addEventListener('click', (e)=>{ window.open('https://github.com/sinceohsix', '_blank'); });
 
 /* handle back/forward */
 window.addEventListener('popstate', ()=>{
