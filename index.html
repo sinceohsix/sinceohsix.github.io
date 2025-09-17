@@ -1,258 +1,186 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>SinceOhSix — File Browser</title>
-<style>
-  :root{
-    --bg:#fafafa; --fg:#111; --panel:#fff; --muted:#666; --accent:#0077cc; --divider:#cfcfcf;
-    --preview-height: 40vh;
-    --toolbar-h: 48px;
-    --divider-h: 8px;
-    --icon-size:28px;
-    --btn-radius:8px;
-  }
-  @media (prefers-color-scheme: dark){
-    :root{ --bg:#0b0b0b; --fg:#eaeaea; --panel:#111; --muted:#aaa; --accent:#4ea8ff; --divider:#333; }
-  }
-
-  html,body{height:100%;margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);color:var(--fg);}
-  a{color:inherit}
-
-  #toolbar{
-    height:var(--toolbar-h);
-    display:flex;
-    align-items:center;
-    justify-content:flex-end;
-    gap:8px;
-    padding:8px 12px;
-    border-bottom:1px solid var(--divider);
-    box-sizing:border-box;
-    background:transparent;
-  }
-  .btn{
-    border:1px solid var(--divider);
-    background:transparent;
-    padding:6px 10px;
-    border-radius:var(--btn-radius);
-    cursor:pointer;
-    font-family:inherit;
-    font-size:0.95rem;
-    color:var(--fg);
-  }
-
-  #container{
-    height: calc(100vh - var(--toolbar-h));
-    display:flex;
-    flex-direction:column;
-    min-height:0;
-  }
-
-  #file-browser{
-    flex:1 1 auto;
-    overflow:auto;
-    padding:12px;
-    box-sizing:border-box;
-    border-bottom:1px solid var(--divider);
-    background:var(--panel);
-  }
-
-  #hdivider{
-    height:var(--divider-h);
-    background:linear-gradient(180deg, transparent, rgba(0,0,0,0.02), transparent);
-    display:flex; align-items:center; justify-content:center;
-    cursor:row-resize;
-    user-select:none;
-    -webkit-user-select:none;
-    box-sizing:border-box;
-    position:relative;
-  }
-  #hdivider .grip { width:80px; height:4px; border-radius:2px; background:var(--divider); opacity:0.7; }
-  #hdivider::before{
-    content: "";
-    position: absolute; left: 0; right: 0; top: -14px; bottom: -14px;
-    background: transparent; pointer-events: auto;
-  }
-
-  #previewer{
-    flex:0 0 var(--preview-height);
-    max-height:var(--preview-height);
-    overflow:auto;
-    padding:12px;
-    box-sizing:border-box;
-    background:var(--panel);
-    transition: max-height .18s ease;
-    display:flex;
-    flex-direction:column;
-  }
-  body.preview-closed #previewer{
-    --preview-height: 0px !important;
-    max-height:0 !important;
-    padding-top:6px; padding-bottom:6px;
-  }
-
-  .tree { font-size:1rem; }
-  ul { list-style:none; padding-left:0; margin:0; }
-  li { margin:6px 0; display:block; }
-  .node { display:flex; align-items:center; gap:10px; padding:6px 4px; border-radius:4px; user-select:none; }
-  .node:hover { background:rgba(0,0,0,0.02); }
-  .chev { width:14px; display:inline-block; transform:rotate(0); transition: transform .16s ease; }
-  .expanded > .chev { transform:rotate(90deg); }
-  .icon { width:var(--icon-size); height:var(--icon-size); object-fit:contain; flex:0 0 var(--icon-size); }
-  .name { font-size:1rem; }
-
-  .children { overflow:hidden; max-height:0; transition:max-height .24s ease; }
-  .expanded > .children { max-height:2000px; }
-
-  .preview-header { display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--divider); padding-bottom:8px; margin-bottom:8px; }
-  .preview-body { overflow:auto; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:8px; }
-  pre { white-space:pre-wrap; word-break:break-word; background:rgba(0,0,0,0.03); padding:10px; border-radius:6px; overflow:auto; align-self:flex-start; width:100%; }
-  img.preview { max-width:100%; max-height:100%; object-fit:contain; display:block; border-radius:6px; border:1px solid var(--divider); }
-
-  /* Custom MP3 player */
-  .mp3-player { display:flex; flex-direction:column; align-items:center; gap:10px; width:100%; }
-  .mp3-cover { max-width:160px; border-radius:8px; border:1px solid var(--divider); }
-  .mp3-meta { text-align:center; }
-  .mp3-title { font-weight:600; margin-top:6px; }
-  .mp3-artist { font-size:0.9rem; color:var(--muted); }
-  .mp3-controls button { border:none; background:var(--accent); color:white; padding:8px 14px; border-radius:6px; cursor:pointer; font-family:inherit; font-size:1rem; }
-
-  @media (max-width:700px){
-    :root{ --icon-size:32px; }
-    #hdivider .grip{ width:56px; }
-    .name{ font-size:1.02rem; }
-  }
-</style>
-</head>
-<body class="preview-open">
-  <div id="toolbar">
-    <button id="githubBtn" class="btn">My GitHub</button>
-    <button id="togglePreview" class="btn">Hide Preview</button>
-  </div>
-
-  <div id="container" role="main">
-    <div id="file-browser">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <div style="font-weight:600">~/</div>
-        <div class="muted small">Files from <code>contents/</code></div>
-      </div>
-      <div id="tree" class="tree">Loading manifest…</div>
-    </div>
-
-    <div id="hdivider" title="Drag to resize preview"><div class="grip" aria-hidden="true"></div></div>
-
-    <div id="previewer" aria-live="polite">
-      <div class="preview-header">
-        <img id="previewIcon" class="icon" src="icons/file.png" alt="">
-        <div style="min-width:0">
-          <div id="previewName" style="font-weight:700">No file selected</div>
-          <div id="previewPath" style="color:var(--muted);font-size:0.9rem">—</div>
-        </div>
-        <div style="flex:1"></div>
-        <a id="downloadLink" class="btn" href="#" download style="display:none">Download</a>
-      </div>
-      <div id="previewBody" class="preview-body">
-        <div style="color:var(--muted); width:100%;">Select a file above to preview. Supported: images, text, mp3. Use the divider to resize the preview area.</div>
-      </div>
-    </div>
-  </div>
-
-<script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.5/dist/jsmediatags.min.js"></script>
-<script>
-const CONTENTS_PREFIX = "contents/";
-const ICONS = {
-  folder: "icons/folder.png",
-  file: "icons/file.png",
-  folder_white: "icons/folder_white.png",
-  file_white: "icons/file_white.png"
-};
-const treeEl = document.getElementById('tree');
-const previewBody = document.getElementById('previewBody');
-const previewName = document.getElementById('previewName');
-const previewPath = document.getElementById('previewPath');
-const previewIcon = document.getElementById('previewIcon');
-const downloadLink = document.getElementById('downloadLink');
-const toggleBtn = document.getElementById('togglePreview');
-const hdivider = document.getElementById('hdivider');
-const container = document.getElementById('container');
-const githubBtn = document.getElementById('githubBtn');
-
-const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-function pickIcon(type){ return (type==='folder') ? (isDark ? ICONS.folder_white : ICONS.folder) : (isDark ? ICONS.file_white : ICONS.file); }
-function encodeSegments(path){ return path.split('/').map(seg => encodeURIComponent(seg)).join('/'); }
-
-/* === load manifest, build tree (same as before) === */
-// (keeping your manifest/tree logic untouched — omitted here for brevity, keep full version from your file)
-
-// --- inside openPreview add custom mp3 handler ---
-async function openPreview(logicalPath){
-  previewName.textContent = logicalPath.split('/').pop();
-  previewPath.textContent = logicalPath;
-  previewIcon.src = pickIcon('file');
-  downloadLink.style.display = 'none';
-  previewBody.innerHTML = '<div style="color:var(--muted)">Loading preview…</div>';
-
-  const encoded = encodeSegments(logicalPath);
-  const real = CONTENTS_PREFIX + encoded;
-  try {
-    const res = await fetch(real);
-    if (!res.ok){ previewBody.innerHTML = '<div style="color:var(--muted)">Error loading file: '+res.status+'</div>'; return; }
-    const ext = logicalPath.split('.').pop().toLowerCase();
-    if (['mp3'].includes(ext)){
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      renderMp3Player(blob, url);
-      downloadLink.href = real; downloadLink.style.display = 'inline-block';
+  <meta charset="UTF-8">
+  <title>File Viewer</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: monospace;
+      background: #111;
+      color: #eee;
     }
-    // keep your existing handlers for images, text, other audio, etc.
-  } catch(err){ previewBody.innerHTML = '<div style="color:var(--muted)">Preview failed: '+err+'</div>'; }
-}
+    #topbar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      padding: 5px 10px;
+      background: #222;
+      border-bottom: 1px solid #444;
+    }
+    #topbar button {
+      background: none;
+      border: 1px solid #555;
+      color: #eee;
+      padding: 5px 10px;
+      margin-left: 5px;
+      cursor: pointer;
+    }
+    #container {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 35px);
+    }
+    #file-browser {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+    }
+    .folder, .file {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      margin: 2px 0;
+    }
+    .file img, .folder img {
+      width: 20px;
+      height: 20px;
+      margin-right: 6px;
+      object-fit: contain;
+    }
+    .indent {
+      margin-left: 20px;
+    }
+    #resizer {
+      height: 6px;
+      background: #333;
+      cursor: row-resize;
+    }
+    #preview {
+      flex: 1;
+      overflow: auto;
+      background: #000;
+      padding: 10px;
+      display: none;
+    }
+    #preview img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: auto;
+    }
+    #preview audio {
+      width: 100%;
+    }
+    #preview pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+  </style>
+</head>
+<body>
+  <div id="topbar">
+    <button onclick="window.location.href='https://github.com/sinceohsix'">My GitHub</button>
+    <button id="togglePreview">Toggle Preview</button>
+  </div>
+  <div id="container">
+    <div id="file-browser"></div>
+    <div id="resizer"></div>
+    <div id="preview"></div>
+  </div>
 
-/* === Custom MP3 player === */
-function renderMp3Player(blob, url){
-  previewBody.innerHTML = '';
-  const wrap = document.createElement('div'); wrap.className = 'mp3-player';
+  <script>
+    const browser = document.getElementById("file-browser");
+    const preview = document.getElementById("preview");
+    const resizer = document.getElementById("resizer");
+    const toggleBtn = document.getElementById("togglePreview");
 
-  const cover = document.createElement('img');
-  cover.className = 'mp3-cover';
-  cover.src = 'icons/file.png'; // fallback
-  wrap.appendChild(cover);
+    // Toggle preview open/close
+    toggleBtn.addEventListener("click", () => {
+      preview.style.display = preview.style.display === "none" ? "block" : "none";
+    });
 
-  const meta = document.createElement('div'); meta.className = 'mp3-meta';
-  const titleEl = document.createElement('div'); titleEl.className = 'mp3-title'; titleEl.textContent = 'Unknown Title';
-  const artistEl = document.createElement('div'); artistEl.className = 'mp3-artist'; artistEl.textContent = 'Unknown Artist';
-  meta.appendChild(titleEl); meta.appendChild(artistEl);
-  wrap.appendChild(meta);
-
-  const controls = document.createElement('div'); controls.className = 'mp3-controls';
-  const btn = document.createElement('button'); btn.textContent = 'Play';
-  controls.appendChild(btn); wrap.appendChild(controls);
-
-  const audio = new Audio(url);
-
-  btn.addEventListener('click', ()=>{
-    if(audio.paused){ audio.play(); btn.textContent='Pause'; }
-    else { audio.pause(); btn.textContent='Play'; }
-  });
-
-  jsmediatags.read(blob, {
-    onSuccess: function(tag){
-      if(tag.tags.title) titleEl.textContent = tag.tags.title;
-      if(tag.tags.artist) artistEl.textContent = tag.tags.artist;
-      if(tag.tags.picture){
-        const { data, format } = tag.tags.picture;
-        let base64 = ""; const bytes = new Uint8Array(data);
-        for (let i=0;i<bytes.length;i++){ base64 += String.fromCharCode(bytes[i]); }
-        cover.src = `data:${format};base64,${btoa(base64)}`;
+    // Load manifest.json
+    async function loadManifest() {
+      try {
+        const res = await fetch("./manifest.json");
+        if (!res.ok) throw new Error("Failed to fetch manifest: " + res.status);
+        const manifest = await res.json();
+        renderFiles(manifest.files, browser);
+      } catch (err) {
+        browser.innerHTML = `<p style="color:red">Error loading manifest.json: ${err.message}</p>`;
       }
     }
-  });
 
-  previewBody.appendChild(wrap);
-}
+    function renderFiles(files, container, depth = 0) {
+      files.forEach(file => {
+        if (file.type === "folder") {
+          const folderDiv = document.createElement("div");
+          folderDiv.className = "folder indent".repeat(depth);
+          folderDiv.innerHTML = `<img src="folder.png"> ${file.name}`;
+          container.appendChild(folderDiv);
 
-/* keep rest of your code intact (tree render, expandToPath, togglePreview, drag divider, etc.) */
-</script>
+          const subContainer = document.createElement("div");
+          subContainer.style.display = "none";
+          container.appendChild(subContainer);
+
+          folderDiv.addEventListener("click", () => {
+            subContainer.style.display = subContainer.style.display === "none" ? "block" : "none";
+          });
+
+          renderFiles(file.children, subContainer, depth + 1);
+        } else {
+          const fileDiv = document.createElement("div");
+          fileDiv.className = "file indent".repeat(depth);
+          fileDiv.innerHTML = `<img src="file.png"> ${file.name}`;
+          fileDiv.addEventListener("click", () => previewFile(file.path));
+          container.appendChild(fileDiv);
+        }
+      });
+    }
+
+    async function previewFile(path) {
+      preview.style.display = "block";
+      const ext = path.split(".").pop().toLowerCase();
+      const url = `contents/${path}`;
+
+      try {
+        if (["txt", "md"].includes(ext)) {
+          const res = await fetch(url);
+          const text = await res.text();
+          preview.innerHTML = `<pre>${text}</pre>`;
+        } else if (["png", "jpg", "jpeg", "gif"].includes(ext)) {
+          preview.innerHTML = `<img src="${url}" alt="${path}">`;
+        } else if (["mp3", "wav", "ogg"].includes(ext)) {
+          preview.innerHTML = `<audio controls src="${url}"></audio>`;
+        } else {
+          preview.innerHTML = `<p>No preview available. <a href="${url}" download>Download</a></p>`;
+        }
+      } catch (err) {
+        preview.innerHTML = `<p style="color:red">Error loading file: ${err.message}</p>`;
+      }
+    }
+
+    // Resizer
+    let isResizing = false;
+    resizer.addEventListener("mousedown", e => {
+      isResizing = true;
+      document.body.style.cursor = "row-resize";
+    });
+    document.addEventListener("mousemove", e => {
+      if (!isResizing) return;
+      const totalHeight = container.clientHeight;
+      const newHeight = e.clientY - container.offsetTop;
+      const percent = newHeight / totalHeight * 100;
+      browser.style.flex = "0 0 " + percent + "%";
+      preview.style.flex = "0 0 " + (100 - percent) + "%";
+    });
+    document.addEventListener("mouseup", () => {
+      isResizing = false;
+      document.body.style.cursor = "default";
+    });
+
+    loadManifest();
+  </script>
 </body>
 </html>
