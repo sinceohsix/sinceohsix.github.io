@@ -2,6 +2,7 @@
   "items": [
     {"path": "images/olive.png"},
     {"path": "images/cats.png"},
-    {"path": "about-me.txt"}
+    {"path": "about-me.txt"},
+    {"path": "music/Wit My Crew X 1987.mp3"}
   ]
 }
