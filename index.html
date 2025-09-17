@@ -3,32 +3,88 @@
 <head>
   <meta charset="UTF-8">
   <title>~/</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       font-family: monospace;
       background: #fafafa;
-      padding: 2rem;
+      color: #111;
+      padding: 1rem;
+      max-width: 900px;
+      margin: auto;
     }
+
+    h1 {
+      font-size: 1.4rem;
+      margin-bottom: 1rem;
+    }
+
     ul {
       list-style: none;
-      padding-left: 0;
+      padding-left: 1.2rem;
     }
+
     li {
-      margin: 0.3rem 0;
+      margin: 0.4rem 0;
       display: flex;
       align-items: center;
     }
-    img {
-      width: 18px;
-      height: 18px;
+
+    img.icon {
+      width: 20px;      /* logical size */
+      height: 20px;
+      object-fit: contain; /* keep proportions, no smush */
       margin-right: 6px;
+      flex-shrink: 0;
     }
+
     a {
       text-decoration: none;
-      color: #333;
+      color: inherit;
+      cursor: pointer;
     }
+
     a:hover {
       text-decoration: underline;
+    }
+
+    #preview {
+      margin-top: 2rem;
+      padding: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #fff;
+      display: none;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #eee;
+      padding: 1rem;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+
+    img.preview {
+      max-width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    /* Dark mode */
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: #111;
+        color: #eee;
+      }
+      #preview {
+        background: #222;
+        border-color: #555;
+      }
+      pre {
+        background: #333;
+      }
     }
   </style>
 </head>
@@ -36,36 +92,141 @@
   <h1>~/</h1>
   <ul id="file-list"></ul>
 
+  <div id="preview">
+    <a href="index.html">← back</a>
+    <h2 id="filename"></h2>
+    <div id="filecontent">Loading…</div>
+  </div>
+
   <script>
+    let manifestData = null;
+    let darkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
+
     async function loadManifest() {
-      const response = await fetch("manifest.json");
-      const data = await response.json();
+      const res = await fetch("manifest.json");
+      manifestData = await res.json();
 
-      const list = document.getElementById("file-list");
+      // Build folder tree from file paths
+      const tree = buildTree(manifestData.items);
+      renderTree(tree, document.getElementById("file-list"));
+      checkURL();
+    }
 
-      data.items.forEach(item => {
+    // Build folder structure automatically
+    function buildTree(items) {
+      const root = {};
+
+      items.forEach(item => {
+        const parts = item.path.split("/");
+        let node = root;
+        parts.forEach((part, i) => {
+          const isFile = i === parts.length - 1;
+          if (!node[part]) {
+            node[part] = {
+              __type: isFile ? "file" : "folder",
+              __children: {}
+            };
+          }
+          if (isFile) {
+            node[part].__data = item;
+          }
+          node = node[part].__children;
+        });
+      });
+
+      return root;
+    }
+
+    function renderTree(tree, container) {
+      const ul = document.createElement("ul");
+
+      Object.entries(tree).forEach(([name, obj]) => {
         const li = document.createElement("li");
         const img = document.createElement("img");
-        img.src = item.type === "folder" ? "icons/folder.png" : "icons/file.png";
-        img.alt = item.type;
+        img.className = "icon";
 
-        const link = document.createElement("a");
-
-        if (item.type === "file") {
-          // Go to preview page
-          link.href = "file.html?path=" + encodeURIComponent(item.path);
+        if (obj.__type === "folder") {
+          img.src = darkMode ? "icons/folder_white.png" : "icons/folder.png";
+          const link = document.createElement("a");
+          link.textContent = name;
+          link.onclick = () => {
+            if (li.querySelector("ul")) {
+              li.removeChild(li.querySelector("ul")); // collapse
+            } else {
+              renderTree(obj.__children, li); // expand
+            }
+          };
+          li.appendChild(img);
+          li.appendChild(link);
         } else {
-          // For now, just link directly — could be expanded to nested manifests
-          link.href = "file.html?path=" + encodeURIComponent(item.path);
+          img.src = darkMode ? "icons/file_white.png" : "icons/file.png";
+          const link = document.createElement("a");
+          link.textContent = name;
+          link.href = "?path=" + encodeURIComponent(obj.__data.path);
+          link.onclick = (e) => {
+            e.preventDefault();
+            openPreview(obj.__data.path);
+            history.pushState(null, "", "?path=" + encodeURIComponent(obj.__data.path));
+          };
+          li.appendChild(img);
+          li.appendChild(link);
         }
 
-        link.textContent = item.name;
-
-        li.appendChild(img);
-        li.appendChild(link);
-        list.appendChild(li);
+        ul.appendChild(li);
       });
+
+      container.appendChild(ul);
     }
+
+    async function openPreview(logicalPath) {
+      const filename = document.getElementById("filename");
+      const content = document.getElementById("filecontent");
+      const previewBox = document.getElementById("preview");
+
+      filename.textContent = logicalPath;
+      previewBox.style.display = "block";
+      content.textContent = "Loading…";
+
+      const realPath = "contents/" + logicalPath;
+      try {
+        const res = await fetch(realPath);
+        if (!res.ok) {
+          content.textContent = "Error: " + res.status;
+          return;
+        }
+        const ext = logicalPath.split(".").pop().toLowerCase();
+        if (["png","jpg","jpeg","gif","webp","svg"].includes(ext)) {
+          const img = document.createElement("img");
+          img.src = realPath;
+          img.className = "preview";
+          content.innerHTML = "";
+          content.appendChild(img);
+        } else if (["txt","json","md","html","css","js"].includes(ext)) {
+          const text = await res.text();
+          const pre = document.createElement("pre");
+          pre.textContent = text;
+          content.innerHTML = "";
+          content.appendChild(pre);
+        } else {
+          const link = document.createElement("a");
+          link.href = realPath;
+          link.download = logicalPath.split("/").pop();
+          link.textContent = "Download " + logicalPath;
+          content.innerHTML = "";
+          content.appendChild(link);
+        }
+      } catch (err) {
+        content.textContent = "Error loading file: " + err;
+      }
+    }
+
+    function checkURL() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const file = urlParams.get("path");
+      if (file) openPreview(file);
+    }
+
+    window.onpopstate = checkURL;
 
     loadManifest();
   </script>
