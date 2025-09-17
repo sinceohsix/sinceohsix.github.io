@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>~/</title>
+  <style>
+    body {
+      font-family: monospace;
+      background: #fafafa;
+      padding: 2rem;
+    }
+    ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    li {
+      margin: 0.3rem 0;
+      display: flex;
+      align-items: center;
+    }
+    img {
+      width: 18px;
+      height: 18px;
+      margin-right: 6px;
+    }
+    a {
+      text-decoration: none;
+      color: #333;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <h1>~/</h1>
+  <ul id="file-list"></ul>
+
+  <script>
+    async function loadManifest() {
+      const response = await fetch("manifest.json");
+      const data = await response.json();
+
+      const list = document.getElementById("file-list");
+
+      data.items.forEach(item => {
+        const li = document.createElement("li");
+        const img = document.createElement("img");
+        img.src = item.type === "folder" ? "icons/folder.png" : "icons/file.png";
+        img.alt = item.type;
+
+        const link = document.createElement("a");
+
+        if (item.type === "file") {
+          // Go to preview page
+          link.href = "file.html?path=" + encodeURIComponent(item.path);
+        } else {
+          // For now, just link directly — could be expanded to nested manifests
+          link.href = "file.html?path=" + encodeURIComponent(item.path);
+        }
+
+        link.textContent = item.name;
+
+        li.appendChild(img);
+        li.appendChild(link);
+        list.appendChild(li);
+      });
+    }
+
+    loadManifest();
+  </script>
+</body>
+</html>
