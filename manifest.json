@@ -1,6 +1,7 @@
 {
   "items": [
     {"path": "images/olive.png"},
+    {"path": "images/cats.png"},
     {"path": "about-me.txt"}
   ]
 }
