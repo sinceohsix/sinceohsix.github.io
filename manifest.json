@@ -1,0 +1,8 @@
+{
+  "items": [
+    { "name": "shortcuts", "path": "shortcuts/", "type": "folder" },
+    { "name": "whatever", "path": "whatever/", "type": "folder" },
+    { "name": "files", "path": "files/", "type": "folder" },
+    { "name": "about-me.txt", "path": "about-me.txt", "type": "file" }
+  ]
+}
