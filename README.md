@@ -1,2 +1,4 @@
 # sinceohsix.github.io
-Little Github Site
+Personal Website
+
+Uses a manifest.json to load files from the `contents/` folder.
