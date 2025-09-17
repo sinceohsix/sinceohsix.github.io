@@ -176,7 +176,7 @@
       </div>
     </div>
   </div>
-
+<script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"></script>
 <script>
 /* ===== CONFIG ===== */
 const CONTENTS_PREFIX = "contents/"; // auto-prepended
@@ -373,6 +373,98 @@ async function openPreview(logicalPath){
       const audio = document.createElement('audio'); audio.controls = true; audio.src = url;
       previewBody.innerHTML = ''; previewBody.appendChild(audio);
       downloadLink.href = real; downloadLink.style.display = 'inline-block';
+    } else if (['mp3','wav','ogg','m4a'].includes(ext)){
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  previewBody.innerHTML = '';
+
+  // container
+  const wrapper = document.createElement('div');
+  wrapper.style.display = 'flex';
+  wrapper.style.flexDirection = 'column';
+  wrapper.style.alignItems = 'center';
+  wrapper.style.gap = '10px';
+  wrapper.style.width = '100%';
+
+  // audio element (hidden)
+  const audio = document.createElement('audio');
+  audio.src = url;
+  audio.preload = 'metadata';
+  audio.style.display = 'none';
+
+  // cover art
+  const cover = document.createElement('img');
+  cover.style.maxWidth = '180px';
+  cover.style.borderRadius = '8px';
+  cover.style.border = '1px solid var(--divider)';
+  cover.style.display = 'none';
+
+  // title/artist
+  const info = document.createElement('div');
+  info.style.textAlign = 'center';
+  info.style.fontSize = '0.95rem';
+  info.style.color = 'var(--fg)';
+  info.textContent = 'Loading metadata…';
+
+  // controls
+  const controls = document.createElement('button');
+  controls.textContent = 'Play ▶️';
+  controls.className = 'btn';
+  controls.addEventListener('click', ()=>{
+    if(audio.paused){
+      audio.play();
+      controls.textContent = 'Pause ⏸️';
+    } else {
+      audio.pause();
+      controls.textContent = 'Play ▶️';
+    }
+  });
+
+  // progress bar
+  const progress = document.createElement('input');
+  progress.type = 'range';
+  progress.min = 0;
+  progress.value = 0;
+  progress.step = 0.1;
+  progress.style.width = '100%';
+
+  audio.addEventListener('timeupdate', ()=>{
+    progress.value = audio.currentTime;
+    progress.max = audio.duration || 0;
+  });
+  progress.addEventListener('input', ()=>{ audio.currentTime = progress.value; });
+
+  // append all
+  wrapper.appendChild(cover);
+  wrapper.appendChild(info);
+  wrapper.appendChild(controls);
+  wrapper.appendChild(progress);
+  wrapper.appendChild(audio);
+  previewBody.appendChild(wrapper);
+
+  // parse tags with jsmediatags
+  jsmediatags.read(blob, {
+    onSuccess: function(tag) {
+      const tags = tag.tags;
+      let text = '';
+      if(tags.title) text += tags.title;
+      if(tags.artist) text += (text ? ' — ' : '') + tags.artist;
+      info.textContent = text || 'Unknown track';
+
+      if(tags.picture){
+        const data = tags.picture.data;
+        const format = tags.picture.format;
+        let base64 = "";
+        for(let i=0;i<data.length;i++) base64 += String.fromCharCode(data[i]);
+        cover.src = `data:${format};base64,${btoa(base64)}`;
+        cover.style.display = 'block';
+      }
+    },
+    onError: function(err){ info.textContent = 'Unknown track'; }
+  });
+
+  downloadLink.href = real; downloadLink.style.display = 'inline-block';
+}
     } else {
       previewBody.innerHTML = '<div style="color:var(--muted)">No preview available — use Download.</div>';
       downloadLink.href = real; downloadLink.style.display = 'inline-block';
