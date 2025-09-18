@@ -256,12 +256,13 @@ function renderTree(tree,depth=0){
       iconType=getFileType(node.data.path);
     }
 
-    const img=document.createElement('img'); 
+    // icon
+    const img = document.createElement('img'); 
     img.className='icon'; 
-    img.src=pickIcon(iconType);
-    const [w,h]=pickSize(iconType);
-    img.style.width=w+'px';
-    img.style.height=h+'px';
+    img.src = node.type === 'folder' 
+      ? pickIcon('folder') 
+      : pickFileIcon(name); 
+    img.alt = node.type;
     row.appendChild(img);
 
     const nameEl=document.createElement('span'); 
