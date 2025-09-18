@@ -300,7 +300,7 @@ async function openPreview(logicalPath){
   previewPath.textContent=logicalPath;
   previewIcon.src=pickIcon('file');
   downloadLink.style.display='none';
-  previewBody.innerHTML='<div style="color:var(--muted)">Loading previewâ¦</div>';
+  previewBody.innerHTML='<div style="color:var(--muted)">Loading preview...</div>';
   const encoded=encodeSegments(logicalPath);
   const real=CONTENTS_PREFIX+encoded;
   try{
