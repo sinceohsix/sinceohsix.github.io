@@ -1,5 +1,5 @@
 # @sinceohsix's Files
-My files, look through them, you might find something cool. 🤷‍♂️
+My files... Look through them, you might find something cool. 🤷‍♂️
 
 ### How does this work?  
 Files are fetched from `manifest.json` and then loaded from the `contents/` directory. A previewer is built in and supports photo, text, and audio files currently.
