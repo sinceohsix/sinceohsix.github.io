@@ -119,10 +119,188 @@
   pre { white-space:pre-wrap; word-break:break-word; background:rgba(0,0,0,0.03); padding:10px; border-radius:6px; overflow:auto; align-self:flex-start; width:100%; }
   img.preview { max-width:100%; max-height:100%; object-fit:contain; display:block; border-radius:6px; border:1px solid var(--divider); }
 
+  /* Enhanced MP3 Player */
+  .mp3-player {
+    width: 100%;
+    max-width: 400px;
+    background: var(--panel);
+    border: 1px solid var(--divider);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .mp3-player-header {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .mp3-cover-art {
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    object-fit: cover;
+    background: var(--divider);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: var(--muted);
+  }
+  .mp3-metadata {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .mp3-title {
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin: 0 0 4px 0;
+    color: var(--fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mp3-artist {
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin: 0 0 4px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mp3-album {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mp3-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .mp3-play-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: all 0.2s ease;
+  }
+  .mp3-play-btn:hover {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+  .mp3-time {
+    font-size: 0.9rem;
+    color: var(--muted);
+    font-family: monospace;
+    min-width: 40px;
+  }
+  .mp3-progress-container {
+    flex: 1;
+    height: 6px;
+    background: rgba(0,0,0,0.1);
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+  }
+  .mp3-progress {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.1s ease;
+  }
+  .mp3-volume-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mp3-volume-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px;
+  }
+  .mp3-volume-slider {
+    width: 80px;
+    height: 4px;
+    background: rgba(0,0,0,0.1);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+  }
+  .mp3-volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+  .mp3-volume-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: none;
+  }
+
   @media (max-width:700px){
     :root{ --icon-size:32px; }
     #hdivider .grip{ width:56px; }
     .name{ font-size:1.02rem; }
+    
+    .mp3-player {
+      max-width: 100%;
+      padding: 16px;
+    }
+    .mp3-player-header {
+      gap: 12px;
+    }
+    .mp3-cover-art {
+      width: 60px;
+      height: 60px;
+      font-size: 20px;
+    }
+    .mp3-title {
+      font-size: 1rem;
+    }
+    .mp3-artist, .mp3-album {
+      font-size: 0.9rem;
+    }
+    .mp3-controls {
+      gap: 8px;
+    }
+    .mp3-play-btn {
+      width: 40px;
+      height: 40px;
+      font-size: 16px;
+    }
+    .mp3-volume-container {
+      flex-direction: column;
+      gap: 4px;
+      align-items: center;
+    }
+    .mp3-volume-slider {
+      width: 60px;
+    }
   }
 </style>
 </head>
@@ -161,6 +339,7 @@
     </div>
   </div>
 
+<script src="https://cdn.jsdelivr.net/npm/jsmediatags@3.9.5/dist/jsmediatags.min.js"></script>
 <script>
 const CONTENTS_PREFIX = "contents/";
 const ICONS = {
@@ -200,6 +379,227 @@ const container=document.getElementById('container');
 const githubBtn=document.getElementById('githubBtn');
 
 function encodeSegments(path){ return path.split('/').map(seg=>encodeURIComponent(seg)).join('/'); }
+
+let currentAudio = null;
+
+function formatTime(seconds) {
+  if (isNaN(seconds)) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function createEnhancedMP3Player(audioUrl, audioBlob, filename) {
+  previewBody.innerHTML = '';
+  
+  // Create player container
+  const playerDiv = document.createElement('div');
+  playerDiv.className = 'mp3-player';
+  
+  // Create header with cover art and metadata
+  const header = document.createElement('div');
+  header.className = 'mp3-player-header';
+  
+  const coverArt = document.createElement('div');
+  coverArt.className = 'mp3-cover-art';
+  coverArt.innerHTML = '🎵';
+  
+  const metadata = document.createElement('div');
+  metadata.className = 'mp3-metadata';
+  
+  const title = document.createElement('div');
+  title.className = 'mp3-title';
+  title.textContent = filename.split('/').pop().replace(/\.[^/.]+$/, '');
+  
+  const artist = document.createElement('div');
+  artist.className = 'mp3-artist';
+  artist.textContent = 'Unknown Artist';
+  
+  const album = document.createElement('div');
+  album.className = 'mp3-album';
+  album.textContent = 'Unknown Album';
+  
+  metadata.appendChild(title);
+  metadata.appendChild(artist);
+  metadata.appendChild(album);
+  header.appendChild(coverArt);
+  header.appendChild(metadata);
+  
+  // Create audio element (hidden)
+  const audio = document.createElement('audio');
+  audio.src = audioUrl;
+  audio.preload = 'metadata';
+  
+  // Stop any currently playing audio
+  if (currentAudio && !currentAudio.paused) {
+    currentAudio.pause();
+  }
+  currentAudio = audio;
+  
+  // Create controls
+  const controls = document.createElement('div');
+  controls.className = 'mp3-controls';
+  
+  const playBtn = document.createElement('button');
+  playBtn.className = 'mp3-play-btn';
+  playBtn.innerHTML = '▶';
+  
+  const currentTimeSpan = document.createElement('span');
+  currentTimeSpan.className = 'mp3-time';
+  currentTimeSpan.textContent = '0:00';
+  
+  const progressContainer = document.createElement('div');
+  progressContainer.className = 'mp3-progress-container';
+  
+  const progress = document.createElement('div');
+  progress.className = 'mp3-progress';
+  progressContainer.appendChild(progress);
+  
+  const durationSpan = document.createElement('span');
+  durationSpan.className = 'mp3-time';
+  durationSpan.textContent = '0:00';
+  
+  controls.appendChild(playBtn);
+  controls.appendChild(currentTimeSpan);
+  controls.appendChild(progressContainer);
+  controls.appendChild(durationSpan);
+  
+  // Create volume controls
+  const volumeContainer = document.createElement('div');
+  volumeContainer.className = 'mp3-volume-container';
+  
+  const volumeBtn = document.createElement('button');
+  volumeBtn.className = 'mp3-volume-btn';
+  volumeBtn.innerHTML = '🔊';
+  
+  const volumeSlider = document.createElement('input');
+  volumeSlider.type = 'range';
+  volumeSlider.className = 'mp3-volume-slider';
+  volumeSlider.min = '0';
+  volumeSlider.max = '1';
+  volumeSlider.step = '0.1';
+  volumeSlider.value = '1';
+  
+  volumeContainer.appendChild(volumeBtn);
+  volumeContainer.appendChild(volumeSlider);
+  
+  // Assemble player
+  playerDiv.appendChild(header);
+  playerDiv.appendChild(controls);
+  playerDiv.appendChild(volumeContainer);
+  
+  previewBody.appendChild(playerDiv);
+  
+  // Event listeners
+  playBtn.addEventListener('click', () => {
+    if (audio.paused) {
+      audio.play();
+      playBtn.innerHTML = '⏸';
+    } else {
+      audio.pause();
+      playBtn.innerHTML = '▶';
+    }
+  });
+  
+  audio.addEventListener('loadedmetadata', () => {
+    durationSpan.textContent = formatTime(audio.duration);
+  });
+  
+  audio.addEventListener('timeupdate', () => {
+    if (audio.duration) {
+      const progressPercent = (audio.currentTime / audio.duration) * 100;
+      progress.style.width = progressPercent + '%';
+      currentTimeSpan.textContent = formatTime(audio.currentTime);
+    }
+  });
+  
+  audio.addEventListener('ended', () => {
+    playBtn.innerHTML = '▶';
+    progress.style.width = '0%';
+    currentTimeSpan.textContent = '0:00';
+  });
+  
+  progressContainer.addEventListener('click', (e) => {
+    const rect = progressContainer.getBoundingClientRect();
+    const pos = (e.clientX - rect.left) / rect.width;
+    audio.currentTime = pos * audio.duration;
+  });
+  
+  volumeSlider.addEventListener('input', (e) => {
+    audio.volume = e.target.value;
+    if (e.target.value == 0) {
+      volumeBtn.innerHTML = '🔇';
+    } else if (e.target.value < 0.5) {
+      volumeBtn.innerHTML = '🔉';
+    } else {
+      volumeBtn.innerHTML = '🔊';
+    }
+  });
+  
+  volumeBtn.addEventListener('click', () => {
+    if (audio.volume > 0) {
+      audio.volume = 0;
+      volumeSlider.value = 0;
+      volumeBtn.innerHTML = '🔇';
+    } else {
+      audio.volume = 1;
+      volumeSlider.value = 1;
+      volumeBtn.innerHTML = '🔊';
+    }
+  });
+  
+  // Extract metadata using jsmediatags
+  if (window.jsmediatags) {
+    jsmediatags.read(audioBlob, {
+      onSuccess: (tag) => {
+        if (tag.tags.title) {
+          title.textContent = tag.tags.title;
+        }
+        if (tag.tags.artist) {
+          artist.textContent = tag.tags.artist;
+        }
+        if (tag.tags.album) {
+          album.textContent = tag.tags.album;
+        }
+        if (tag.tags.picture) {
+          const picture = tag.tags.picture;
+          const base64String = picture.data.reduce((data, byte) => data + String.fromCharCode(byte), '');
+          const imageUrl = `data:${picture.format};base64,${btoa(base64String)}`;
+          
+          const img = document.createElement('img');
+          img.src = imageUrl;
+          img.className = 'mp3-cover-art';
+          img.alt = 'Album cover';
+          coverArt.innerHTML = '';
+          coverArt.appendChild(img);
+        }
+      },
+      onError: (error) => {
+        console.log('Metadata extraction failed:', error);
+        // Fallback: try to parse filename for artist/title
+        const fileNameWithoutExt = filename.split('/').pop().replace(/\.[^/.]+$/, '');
+        if (fileNameWithoutExt.includes(' - ')) {
+          const parts = fileNameWithoutExt.split(' - ');
+          if (parts.length >= 2) {
+            artist.textContent = parts[0].trim();
+            title.textContent = parts.slice(1).join(' - ').trim();
+          }
+        }
+      }
+    });
+  } else {
+    console.log('jsmediatags not available, using filename parsing');
+    // Fallback: try to parse filename for artist/title
+    const fileNameWithoutExt = filename.split('/').pop().replace(/\.[^/.]+$/, '');
+    if (fileNameWithoutExt.includes(' - ')) {
+      const parts = fileNameWithoutExt.split(' - ');
+      if (parts.length >= 2) {
+        artist.textContent = parts[0].trim();
+        title.textContent = parts.slice(1).join(' - ').trim();
+      }
+    }
+  }
+}
 
 async function loadManifest(){
   treeEl.textContent='Loading manifestâ¦';
@@ -296,6 +696,11 @@ function animateExpand(el){ el.style.display='block'; const h=el.scrollHeight; e
 function animateCollapse(el){ const h=el.scrollHeight; el.style.maxHeight=h+'px'; el.offsetHeight; el.style.transition='max-height .22s ease'; el.style.maxHeight='0px'; el.addEventListener('transitionend',function tc(){el.style.transition=''; el.removeEventListener('transitionend',tc);}); }
 
 async function openPreview(logicalPath){
+  // Stop any currently playing audio when switching files
+  if (currentAudio && !currentAudio.paused) {
+    currentAudio.pause();
+  }
+  
   previewName.textContent=logicalPath.split('/').pop();
   previewPath.textContent=logicalPath;
   previewIcon.src=pickIcon('file');
@@ -319,8 +724,7 @@ async function openPreview(logicalPath){
       downloadLink.href=real; downloadLink.style.display='inline-block';
     } else if(['mp3','wav','ogg','m4a'].includes(ext)){
       const blob=await res.blob(); const url=URL.createObjectURL(blob);
-      const audio=document.createElement('audio'); audio.controls=true; audio.src=url;
-      previewBody.innerHTML=''; previewBody.appendChild(audio);
+      createEnhancedMP3Player(url, blob, logicalPath);
       downloadLink.href=real; downloadLink.style.display='inline-block';
     } else {
       previewBody.innerHTML='<div style="color:var(--muted)">No preview available â use Download.</div>';
