@@ -154,7 +154,7 @@
         <div style="font-weight:600">~/</div>
         <div class="muted small">Files from <code>contents/</code></div>
       </div>
-      <div id="tree" class="tree">Loading manifestâ¦</div>
+      <div id="tree" class="tree">Loading manifest...</div>
     </div>
 
     <div id="hdivider" title="Drag to resize preview">
@@ -210,7 +210,7 @@ function encodeSegments(path){
 
 /* Load manifest.json (either {items:[]} or plain array) */
 async function loadManifest(){
-  treeEl.textContent = 'Loading manifestâ¦';
+  treeEl.textContent = 'Loading manifest...';
   try {
     const res = await fetch('manifest.json', {cache: "no-store"});
     if (!res.ok) throw new Error('manifest fetch ' + res.status);
@@ -347,7 +347,7 @@ async function openPreview(logicalPath){
   previewPath.textContent = logicalPath;
   previewIcon.src = pickIcon('file');
   downloadLink.style.display = 'none';
-  previewBody.innerHTML = '<div style="color:var(--muted)">Loading previewâ¦</div>';
+  previewBody.innerHTML = '<div style="color:var(--muted)">Loading preview...</div>';
 
   const encoded = encodeSegments(logicalPath);
   const real = CONTENTS_PREFIX + encoded;
