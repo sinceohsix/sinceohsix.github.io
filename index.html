@@ -104,7 +104,7 @@
   .node:hover { background:rgba(0,0,0,0.02); }
   .chev { width:14px; display:inline-block; transform:rotate(0); transition: transform .16s ease; }
   .expanded > .chev { transform:rotate(90deg); }
-  .icon { width:var(--icon-size); height:var(--icon-size); object-fit:contain; flex:0 0 auto; }
+  .icon { object-fit:contain; flex:0 0 auto; }
   .name { font-size:1rem; }
   .children { overflow:hidden; max-height:0; transition:max-height .24s ease; }
   .expanded > .children { max-height:2000px; }
@@ -245,10 +245,30 @@ function renderTree(tree,depth=0){
     row.className='node '+node.type;
     row.style.paddingLeft=(depth*12)+'px';
 
-    const chev=document.createElement('span'); chev.className='chev'; chev.innerHTML=node.type==='folder'?'&#9654;':'';
+    const chev=document.createElement('span'); 
+    chev.className='chev'; 
+    chev.innerHTML=node.type==='folder'?'&#9654;':'';
     row.appendChild(chev);
-    const img=document.createElement('img'); img.className='icon'; img.src=pickIcon(node.type); row.appendChild(img);
-    const nameEl=document.createElement('span'); nameEl.className='name'; nameEl.textContent=name; row.appendChild(nameEl);
+
+    // ✅ detect file type for icons in tree
+    let iconType=node.type;
+    if(node.type==='file' && node.data){
+      iconType=getFileType(node.data.path);
+    }
+
+    const img=document.createElement('img'); 
+    img.className='icon'; 
+    img.src=pickIcon(iconType);
+    const [w,h]=pickSize(iconType);
+    img.style.width=w+'px';
+    img.style.height=h+'px';
+    row.appendChild(img);
+
+    const nameEl=document.createElement('span'); 
+    nameEl.className='name'; 
+    nameEl.textContent=name; 
+    row.appendChild(nameEl);
+
     li.appendChild(row);
 
     if(node.type==='folder'){
@@ -367,7 +387,7 @@ githubBtn.addEventListener('click',()=>{ window.open('https://github.com/sinceoh
 window.addEventListener('popstate',()=>{
   const urlPath=new URLSearchParams(location.search).get('path');
   if(urlPath){ openPreview(urlPath); expandToPath(urlPath); if(document.body.classList.contains('preview-closed')) togglePreview(true); }
-  else { previewName.textContent='No file selected'; previewPath.textContent='—'; previewBody.innerHTML='<div style="color:var(--muted)">Select a file above to preview.</div>'; downloadLink.style.display='none'; }
+  else{ previewName.textContent='No file selected'; previewPath.textContent='—'; previewBody.innerHTML='<div style="color:var(--muted)">Select a file above to preview.</div>'; downloadLink.style.display='none'; }
 });
 
 (function init(){
