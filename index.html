@@ -151,7 +151,7 @@
         <img id="previewIcon" class="icon" src="icons/file.png" alt="">
         <div style="min-width:0">
           <div id="previewName" style="font-weight:700">No file selected</div>
-          <div id="previewPath" style="color:var(--muted);font-size:0.9rem">â</div>
+          <div id="previewPath" style="color:var(--muted);font-size:0.9rem">~/</div>
         </div>
         <div style="flex:1"></div>
         <a id="downloadLink" class="btn" href="#" download style="display:none">Download</a>
@@ -203,7 +203,7 @@ const githubBtn=document.getElementById('githubBtn');
 function encodeSegments(path){ return path.split('/').map(seg=>encodeURIComponent(seg)).join('/'); }
 
 async function loadManifest(){
-  treeEl.textContent='Loading manifestâ¦';
+  treeEl.textContent='Loading files...';
   try{
     const res=await fetch('manifest.json',{cache:"no-store"});
     if(!res.ok) throw new Error('manifest fetch '+res.status);
