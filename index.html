@@ -139,7 +139,7 @@
         <div style="font-weight:600">~/</div>
         <div class="muted small">Files from <code>contents/</code></div>
       </div>
-      <div id="tree" class="tree">Loading manifestâ¦</div>
+      <div id="tree" class="tree">Loading files...</div>
     </div>
 
     <div id="hdivider" title="Drag to resize preview">
@@ -324,7 +324,7 @@ async function openPreview(logicalPath){
       previewBody.innerHTML=''; previewBody.appendChild(audio);
       downloadLink.href=real; downloadLink.style.display='inline-block';
     } else {
-      previewBody.innerHTML='<div style="color:var(--muted)">No preview available â use Download.</div>';
+      previewBody.innerHTML='<div style="color:var(--muted)">No preview available, you can still download this file.</div>';
       downloadLink.href=real; downloadLink.style.display='inline-block';
     }
   }catch(err){ previewBody.innerHTML='<div style="color:var(--muted)">Preview failed: '+err+'</div>'; console.error(err); }
@@ -366,7 +366,7 @@ window.addEventListener('touchend',stopDrag);
 toggleBtn.addEventListener('click',e=>{ e.preventDefault(); togglePreview(); });
 githubBtn.addEventListener('click',()=>{ window.open('https://github.com/sinceohsix','_blank'); });
 
-window.addEventListener('popstate',()=>{ const urlPath=new URLSearchParams(location.search).get('path'); if(urlPath){ openPreview(urlPath); expandToPath(urlPath); if(document.body.classList.contains('preview-closed')) togglePreview(true);} else { previewName.textContent='No file selected'; previewPath.textContent='â'; previewBody.innerHTML='<div style="color:var(--muted)">Select a file above to preview.</div>'; downloadLink.style.display='none'; } });
+window.addEventListener('popstate',()=>{ const urlPath=new URLSearchParams(location.search).get('path'); if(urlPath){ openPreview(urlPath); expandToPath(urlPath); if(document.body.classList.contains('preview-closed')) togglePreview(true);} else { previewName.textContent='No file selected'; previewPath.textContent='~/'; previewBody.innerHTML='<div style="color:var(--muted)">Select a file above to preview.</div>'; downloadLink.style.display='none'; } });
 
 (function init(){ const stored=localStorage.getItem('previewOpen'); if(stored==='false'){ document.body.classList.add('preview-closed'); toggleBtn.textContent='Show Preview'; } loadManifest(); })();
 </script>
